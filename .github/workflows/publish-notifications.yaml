@@ -1,0 +1,146 @@
+name: "Publish Notifications"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version to release"
+        required: true
+      npmOrgName:
+        description: "Organization name on npmjs.com"
+        required: true
+        default: "masayag-tests"
+      githubOrgName:
+        description: "Organization name on github.com to fetch the code"
+        required: true
+        default: "masayag"
+      githubRefName:
+        description: "Branch name on github.com to fetch the code"
+        required: true
+        default: "main"
+      dryRun:
+        description: "Dry run"
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ inputs.version }}
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout backstage-plugins
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ inputs.githubOrgName }}/backstage-plugins
+          ref: ${{ inputs.githubRefName }}
+          fetch-depth: 0
+
+      - name: Get the commit hash
+        id: get_commit_hash
+        run: echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn --prefer-offline --frozen-lockfile
+
+      - name: Update the package version to ${{ inputs.version }}
+        run: |
+          echo Update version of plugins/notifications
+          cd plugins/notifications
+          yarn version --new-version ${{ inputs.version }} --no-git-tag-version
+          cd -
+
+          echo Update version of plugins/notifications-backend
+          cd plugins/notifications-backend
+          yarn version --new-version ${{ inputs.version }} --no-git-tag-version
+          cd -
+
+      - name: Replace the package organization name to ${{ inputs.npmOrgName }}
+        run: |
+          old_string="@janus-idp/plugin-notifications"
+          new_string="@${{ inputs.npmOrgName }}/plugin-notifications"
+          grep -rl "$old_string" | xargs sed -i "s|$old_string|$new_string|g"
+
+          old_string="janus-idp.plugin-notifications"
+          new_string="${{ inputs.npmOrgName }}.plugin-notifications"
+          grep -rl "$old_string" | xargs sed -i "s|$old_string|$new_string|g"
+
+      - name: Print package names and versions
+        run: |
+          folders=("plugins/notifications" "plugin/notifications-backend")
+          for folder in "${folders[@]}"; do
+            cd $folder
+            echo "Package name: $(node -p "require('./package.json').name")"
+            echo "Package version: $(node -p "require('./package.json').version")"
+            cd -
+          done
+
+      - name: Refresh dependencies
+        run: yarn --prefer-offline --frozen-lockfile
+
+      - name: Build the packages
+        run: |
+          echo Build plugins/notifications
+          cd plugins/notifications
+          yarn tsc && yarn build && yarn export-dynamic
+          cd -
+
+          echo Build plugins/notifications-backend
+          cd plugins/notifications-backend
+          yarn tsc && yarn build && yarn export-dynamic
+          cd -
+
+      - name: Delete exports property from notifications-backend/dist-dynamic
+        run: |
+          cd plugins/notifications-backend/dist-dynamic
+          jq 'del(.exports)' package.json > temp.json && mv temp.json package.json
+          cd -
+
+      - name: Publish packages to npmjs.com
+        if: ${{ !inputs.dryRun }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" >> ~/.npmrc
+          folders=("plugins/notifications" "plugins/notifications-backend" "plugins/notifications-backend/dist-dynamic")
+          for folder in "${folders[@]}"; do
+            cd $folder
+            npm publish --access public
+            cd -
+          done
+
+      - name: Collect integrity hashes
+        id: collect_integrity
+        if: ${{ !inputs.dryRun }}
+        run: |
+          package="@${{ inputs.npmOrgName }}/plugin-notifications"
+          integrity=$(curl -s https://registry.npmjs.org/$package | jq -r ".versions[\"${{ inputs.version }}\"].dist.integrity")
+          echo "backstage_plugin_notifications=$integrity" >> $GITHUB_OUTPUT
+
+          package="@${{ inputs.npmOrgName }}/plugin-notifications-backend-dynamic"
+          integrity=$(curl -s https://registry.npmjs.org/$package | jq -r ".versions[\"${{ inputs.version }}\"].dist.integrity")
+          echo "backstage_plugin_notifications_backend_dynamic=$integrity" >> $GITHUB_OUTPUT
+
+      - name: Publish the release on GitHub
+        if: ${{ !inputs.dryRun }}
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          makeLatest: true
+          body: |
+            ### Commit from `${{ inputs.githubOrgName }}/backstage-plugins @ ${{ inputs.githubRefName }}`
+            `${{ steps.get_commit_hash.outputs.commit_hash }}`
+            ### Packages
+            - @${{ inputs.npmOrgName }}/backstage-plugin-notifications (`${{ steps.collect_integrity.outputs.backstage_plugin_notifications }}`)
+            - @${{ inputs.npmOrgName }}/backstage-plugin-notifications-backend-dynamic (`${{ steps.collect_integrity.outputs.backstage_plugin_notifications_backend_dynamic }}`)
