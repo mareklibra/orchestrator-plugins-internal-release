@@ -9,15 +9,15 @@ on:
       npmOrgName:
         description: "Organization name on npmjs.com"
         required: true
-        default: "caponetto-tests"
+        default: "masayag-tests"
       githubOrgName:
         description: "Organization name on github.com to fetch the code"
         required: true
-        default: "caponetto"
+        default: "masayag"
       githubRefName:
         description: "Branch name on github.com to fetch the code"
         required: true
-        default: "KOGITO-9778"
+        default: "main"
       dryRun:
         description: "Dry run"
         required: true
