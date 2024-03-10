@@ -99,11 +99,11 @@ fi
 if [ "$DRY_RUN" != true ]; then
     package="@${NPM_ORG_NAME}/backstage-plugin-orchestrator"
     integrity=$(curl -s "https://registry.npmjs.org/$package" | jq -r ".versions[\"$VERSION\"].dist.integrity")
-    echo "backstage_plugin_orchestrator=$integrity" >> $GITHUB_OUTPUT
+    backstage_plugin_orchestrator=$integrity
 
     package="@${NPM_ORG_NAME}/backstage-plugin-orchestrator-backend-dynamic"
     integrity=$(curl -s "https://registry.npmjs.org/$package" | jq -r ".versions[\"$VERSION\"].dist.integrity")
-    echo "backstage_plugin_orchestrator_backend_dynamic=$integrity" >> $GITHUB_OUTPUT
+    backstage_plugin_orchestrator_backend_dynamic=$integrity
 fi
 
 # Publish the release on GitHub
