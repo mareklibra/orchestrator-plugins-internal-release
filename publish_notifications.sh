@@ -6,6 +6,8 @@ read -p "Enter Organization name on npmjs.com (default: masayag-tests): " npmOrg
 npmOrgName=${npmOrgName:-masayag-tests}
 read -p "Enter Organization name on github.com to fetch the code (default: masayag): " githubOrgName
 githubOrgName=${githubOrgName:-masayag}
+read -p "Enter Repository name on github.com to fetch the code (default: backstage-plugins): " githubRepoName
+githubRepoName=${githubRepoName:-backstage-plugins}
 read -p "Enter Branch name on github.com to fetch the code (default: main): " githubRefName
 githubRefName=${githubRefName:-main}
 read -p "Dry run (true/false, default: true): " dryRun
@@ -14,14 +16,14 @@ dryRun=${dryRun:-true}
 # Ensure GITHUB_TOKEN and NPM_TOKEN are set in your environment variables
 
 # Checkout backstage-plugins
-git clone https://github.com/$githubOrgName/backstage-plugins.git --branch $githubRefName --depth 1
+git clone https://github.com/$githubOrgName/$githubRepoName=.git --branch $githubRefName --depth 1
 
 # Get the commit hash
-commit_hash=$(git -C backstage-plugins rev-parse HEAD)
+commit_hash=$(git -C $githubRepoName rev-parse HEAD)
 echo "Commit Hash: $commit_hash"
 
 # Setup Node.js (ensure Node.js and Yarn are installed)
-cd backstage-plugins
+cd $githubRepoName
 
 # Install dependencies
 yarn --prefer-offline --frozen-lockfile
@@ -36,8 +38,8 @@ old_string="@janus-idp/plugin-notifications"
 new_string="@$npmOrgName/plugin-notifications"
 grep -rl "$old_string" | xargs sed -i "s|$old_string|$new_string|g"
 
-old_string="janus-idp.plugin-notifications"
-new_string="$npmOrgName.plugin-notifications"
+old_string='janus-idp\.plugin-notifications'
+new_string="$npmOrgName\.plugin-notifications"
 grep -rl "$old_string" | xargs sed -i "s|$old_string|$new_string|g" || true
 
 # Refresh dependencies
@@ -63,6 +65,6 @@ fi
 
 # Publish the release on GitHub (requires GitHub CLI - gh)
 if [ "$dryRun" = false ]; then
-    gh release create "$version" --title "$version" --notes "Commit from $githubOrgName/backstage-plugins @ $githubRefName\n$commit_hash"
+    gh release create "$version" --title "$version" --notes "Commit from $githubOrgName/$githubRepoName @ $githubRefName\n$commit_hash"
 fi
 

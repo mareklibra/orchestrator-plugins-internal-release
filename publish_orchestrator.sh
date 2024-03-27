@@ -2,7 +2,7 @@
 
 # Define usage function
 usage() {
-    echo "Usage: $0 [-v <version>] [-n <npmOrgName>] [-g <githubOrgName>] [-r <githubRefName>] [-d <dryRun>]" 1>&2
+    echo "Usage: $0 [-v <version>] [-n <npmOrgName>] [-g <githubOrgName>] [-p <githubRepoName>] [-r <githubRefName>] [-d <dryRun>]" 1>&2
     exit 1
 }
 
@@ -10,15 +10,17 @@ usage() {
 VERSION=""
 NPM_ORG_NAME="masayag-tests"
 GITHUB_ORG_NAME="masayag"
+GITHUB_REPO_NAME="backstage-plugins"
 GITHUB_REF_NAME="main"
 DRY_RUN="true"
 
 # Parse options
-while getopts ":v:n:g:r:d:" opt; do
+while getopts ":v:n:g:p:r:d:" opt; do
     case $opt in
         v) VERSION="$OPTARG";;
         n) NPM_ORG_NAME="$OPTARG";;
         g) GITHUB_ORG_NAME="$OPTARG";;
+        p) GITHUB_REPO_NAME="$OPTARG";;
         r) GITHUB_REF_NAME="$OPTARG";;
         d) DRY_RUN="$OPTARG";;
         *) usage;;
@@ -31,11 +33,19 @@ if [ -z "$VERSION" ]; then
     usage
 fi
 
+echo Using: 
+echo VERSION=$VERSION
+echo NPM_ORG_NAME=$NPM_ORG_NAME
+echo GITHUB_ORG_NAME=$GITHUB_ORG_NAME
+echo GITHUB_REPO_NAME=$GITHUB_REPO_NAME
+echo GITHUB_REF_NAME=$GITHUB_REF_NAME
+echo DRY_RUN=$DRY_RUN
+
 # Get commit hash
 COMMIT_HASH=$(git rev-parse HEAD)
 
 # Checkout backstage-plugins
-git clone --depth=1 --branch="$GITHUB_REF_NAME" "https://github.com/$GITHUB_ORG_NAME/backstage-plugins.git"
+git clone --depth=1 --branch="$GITHUB_REF_NAME" "https://github.com/$GITHUB_ORG_NAME/$GITHUB_REPO_NAME.git"
 
 # Setup Node.js
 NODE_VERSION="18.x"
@@ -44,7 +54,7 @@ sudo apt-get install -y nodejs
 sudo npm install -g yarn
 
 # Install dependencies
-cd backstage-plugins
+cd $GITHUB_REPO_NAME
 yarn --prefer-offline --frozen-lockfile
 
 cd plugins/orchestrator-common
@@ -63,10 +73,13 @@ for folder in "plugins/orchestrator-common" "plugins/orchestrator" "plugins/orch
 done
 
 # Replace the package organization name
-for old_string in "@janus-idp/backstage-plugin-orchestrator" "janus-idp.backstage-plugin-orchestrator"; do
-    new_string="@${NPM_ORG_NAME}/backstage-plugin-orchestrator"
-    grep -rl "$old_string" | xargs sed -i "s|$old_string|$new_string|g"
-done
+old_string='@janus-idp/backstage-plugin-orchestrator'
+new_string="@${NPM_ORG_NAME}/backstage-plugin-orchestrator"
+grep -rl "$old_string" | xargs sed -i "s|$old_string|$new_string|g"
+
+old_string='janus-idp\.backstage-plugin-orchestrator'
+new_string="${NPM_ORG_NAME}.backstage-plugin-orchestrator"
+grep -rl "$old_string" | xargs sed -i "s|$old_string|$new_string|g"
 
 # Print package names and versions
 for folder in "plugins/orchestrator-common" "plugins/orchestrator" "plugins/orchestrator-backend"; do
@@ -81,7 +94,7 @@ yarn --prefer-offline --frozen-lockfile
 for folder in "plugins/orchestrator-common" "plugins/orchestrator" "plugins/orchestrator-backend"; do
     echo "Build $folder"
     cd "$folder"
-    yarn tsc && yarn build && [[ "$folder" != "plugins/orchestrator-backend" ]] && yarn export-dynamic
+    yarn tsc && yarn build && [[ "$folder" != "plugins/orchestrator-common" ]] && yarn export-dynamic
     cd -
 done
 
@@ -115,8 +128,8 @@ fi
 if [ "$DRY_RUN" != true ]; then
     tag="$VERSION"
     name="$VERSION"
-    body="### Commit from '$GITHUB_ORG_NAME/backstage-plugins @ $GITHUB_REF_NAME'\n'$COMMIT_HASH'\n### Packages\n- @${NPM_ORG_NAME}/backstage-plugin-orchestrator ('$backstage_plugin_orchestrator')\n- @${NPM_ORG_NAME}/backstage-plugin-orchestrator-backend-dynamic ('$backstage_plugin_orchestrator_backend_dynamic')"
-    curl -X POST https://api.github.com/repos/$GITHUB_ORG_NAME/backstage-plugins/releases \
+    body="### Commit from '$GITHUB_ORG_NAME/$GITHUB_REPO_NAME @ $GITHUB_REF_NAME'\n'$COMMIT_HASH'\n### Packages\n- @${NPM_ORG_NAME}/backstage-plugin-orchestrator ('$backstage_plugin_orchestrator')\n- @${NPM_ORG_NAME}/backstage-plugin-orchestrator-backend-dynamic ('$backstage_plugin_orchestrator_backend_dynamic')"
+    curl -X POST https://api.github.com/repos/$GITHUB_ORG_NAME/$GITHUB_REPO_NAME/releases \
         -H "Authorization: token $GITHUB_TOKEN" \
         -d "{\"tag_name\":\"$tag\",\"name\":\"$name\",\"body\":\"$body\"}"
 fi
