@@ -47,13 +47,18 @@ sudo npm install -g yarn
 cd backstage-plugins
 yarn --prefer-offline --frozen-lockfile
 
+cd plugins/orchestrator-common
+current_version_common_package=$(node -p "require('./package.json').version")
+cd -
+echo "current_version_common_package= $current_version_common_package"
+
 # Update package version
 for folder in "plugins/orchestrator-common" "plugins/orchestrator" "plugins/orchestrator-backend"; do
     echo "Update version of $folder"
     cd "$folder"
-    current_version_common_package=$(node -p "require('./package.json').version")
     yarn version --new-version "$VERSION" --no-git-tag-version
     sed -i 's/"@janus-idp\/backstage-plugin-orchestrator-common": "'"$current_version_common_package"'"/"@janus-idp\/backstage-plugin-orchestrator-common": "'"$VERSION"'"/g' package.json
+    git diff ./package.json
     cd -
 done
 
