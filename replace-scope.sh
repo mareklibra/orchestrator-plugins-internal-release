@@ -13,7 +13,9 @@
 #   * Update all scoped dependencies from @redhat to the new scope
 #   * Update pluginPackages array in backstage configuration
 # - Repacks the modified plugins with the new scope
+# - Calculates SHA-512 integrity hashes for each rewritten plugin
 # - Saves the rewritten plugins to ./rewritten-plugins/
+# - Generates integrity-hashes.txt with plugin names and their integrity values
 #
 # Usage:
 #   ./replace-scope.sh <NEW_SCOPE>
@@ -25,6 +27,8 @@
 # - npm (for downloading packages)
 # - jq (for JSON manipulation)
 # - tar (for extracting/creating .tgz files)
+# - openssl (for calculating integrity hashes)
+# - base64 (for encoding integrity hashes)
 #
 # ==============================================================================
 
@@ -40,6 +44,7 @@ fi
 NEW_SCOPE="$1"
 ORIGINAL_SCOPE="@redhat"
 REGISTRY_URL="https://npm.registry.redhat.com"
+PLUGIN_VERSION="1.5.1"
 
 # List of plugins to process
 PLUGINS=(
@@ -52,14 +57,17 @@ PLUGINS=(
 OUTPUT_DIR="./rewritten-plugins"
 mkdir -p "$OUTPUT_DIR"
 
+# Initialize integrity hashes file
+echo "# Plugin Integrity Hashes" > "$OUTPUT_DIR/integrity-hashes.txt"
+
 # Function to download, rewrite scope, and repack the plugin
 process_plugin() {
   local plugin="$1"
 
-  echo "🔽 Downloading $plugin from $REGISTRY_URL..."
+  echo "🔽 Downloading $plugin@$PLUGIN_VERSION from $REGISTRY_URL..."
 
   # Download .tgz file
-  npm pack "$plugin" --registry="$REGISTRY_URL"
+  npm pack "$plugin@$PLUGIN_VERSION" --registry="$REGISTRY_URL"
   local tgz_file
   local plugin_name_for_file=$(echo "${plugin//@/}" | sed 's/\//-/g')
   tgz_file=$(ls "${plugin_name_for_file}"-*.tgz)
@@ -96,7 +104,17 @@ process_plugin() {
   popd > /dev/null
 
   mv "$workdir/$new_tgz" "$OUTPUT_DIR/"
+  
+  # Calculate integrity hash
+  local integrity
+  integrity=$(openssl dgst -sha512 -binary "$OUTPUT_DIR/$new_tgz" | openssl base64 -A)
   echo "✅ Rewritten package saved to $OUTPUT_DIR/$new_tgz"
+  echo "🔒 Integrity: sha512-$integrity"
+  
+  # Save integrity to a file for reference
+  local plugin_name_from_json
+  plugin_name_from_json=$(jq -r .name "$package_json")
+  echo "$plugin_name_from_json: sha512-$integrity" >> "$OUTPUT_DIR/integrity-hashes.txt"
 
   # Cleanup
   rm -rf "$workdir"
@@ -107,4 +125,10 @@ process_plugin() {
 for plugin in "${PLUGINS[@]}"; do
   process_plugin "$plugin"
 done
+
+echo ""
+echo "🎉 All plugins processed successfully!"
+echo "📁 Rewritten plugins saved to: $OUTPUT_DIR/"
+echo "🔒 Integrity hashes saved to: $OUTPUT_DIR/integrity-hashes.txt"
+
 
