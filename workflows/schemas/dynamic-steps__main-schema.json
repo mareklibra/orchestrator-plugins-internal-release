@@ -1,0 +1,65 @@
+{
+  "$id": "classpath:/schemas/dynamic-course-select__main-schema.json",
+  "title": "Data Input Schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "ui:order": [
+    "stepOne",
+    "stepTwo",
+    "stepThree",
+    "*"
+  ],
+  "properties": {
+    "stepOne": {
+      "type": "object",
+      "properties": {
+        "stepOneField": {
+          "type": "string",
+          "title": "Step one field"
+        },
+        "stepOneSchemaUpdater": {
+          "type": "string",
+          "title": "Not shown to the user",
+          "ui:widget": "SchemaUpdater",
+          "ui:props": {
+            "fetch:url": "$${{backend.baseUrl}}/api/proxy/mytesthttpserver/customschema",
+            "fetch:method": "POST",
+            "fetch:body": {
+              "stepOneField": "$${{current.stepOne.stepOneField}}",
+              "stepThreeField": "$${{current.stepThree.stepThreeField}}"
+            },
+            "fetch:response:value": "mydataroot",
+            "fetch:retrigger": [
+              "current.stepOne.stepOneField",
+              "current.stepThree.stepThreeField"
+            ]
+          }
+        }
+      }
+    },
+    "stepTwo": {
+      "type": "object",
+      "properties": {
+        "stepTwoField": {
+          "type": "string",
+          "title": "Step two field"
+        }
+      }
+    },
+    "stepThree": {
+      "type": "object",
+      "ui:widget": "hidden",
+      "properties": {}
+    },
+    "stepFour": {
+      "type": "object",
+      "ui:widget": "hidden",
+      "properties": {}
+    },
+    "stepFive": {
+      "type": "object",
+      "ui:widget": "hidden",
+      "properties": {}
+    }
+  }
+}

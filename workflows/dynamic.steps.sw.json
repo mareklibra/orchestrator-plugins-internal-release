@@ -1,0 +1,40 @@
+{
+  "id": "dynamic_steps_schema",
+  "version": "1.0",
+  "specVersion": "0.8",
+  "name": "Dynamic steps",
+  "description": "Demonstrates dynamic hiding of steps",
+  "dataInputSchema": "schemas/dynamic-steps__main-schema.json",
+  "start": "Start",
+  "functions": [
+    {
+      "name": "sysout",
+      "type": "custom",
+      "operation": "sysout"
+    }
+  ],
+  "states": [
+    {
+      "name": "Start",
+      "type": "inject",
+      "data": {},
+      "transition": "End"
+    },
+    {
+      "name": "End",
+      "type": "operation",
+      "actions": [
+        {
+          "name": "sysout",
+          "functionRef": {
+            "refName": "sysout",
+            "arguments": {
+              "message": ".firstStep.fooTheFirst"
+            }
+          }
+        }
+      ],
+      "end": true
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "http-workflow-dev-server",
+  "version": "5.2.3",
+  "license": "Apache-2.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "node ./httpServer.dynamic.steps.js",
+    "update-running-workflow": "cp -r dynamic.steps.sw.json ./schemas ../../rhdh-plugins/workspaces/orchestrator/packages/backend/.devModeTemp/repository/workflows/"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "prettier": "3.4.2"
+  },
+  "maintainers": [
+    "@mlibra"
+  ],
+  "author": "The Backstage Community"
+}
