@@ -53,7 +53,7 @@ app.post('/customschema', (req, res) => {
       "fetch:url": "$${{backend.baseUrl}}/api/proxy/mytesthttpserver/customschema",
       "fetch:method": "POST",
       "fetch:body": {
-        // This drives the recent change
+        // This drives the change on the stepThree to show stepFive
         "stepThreeField": "$${{current.stepThree.stepThreeField}}",
         // But provide everything to keep the /customschema stateless (aka pure function)
         "stepOneField": "$${{current.stepOne.stepOneField}}",
@@ -142,7 +142,11 @@ app.post('/customschema', (req, res) => {
   }
 
   if (stepOneField === 'remove_two') {
-    delete response.mydataroot.stepTwo;
+    response.mydataroot.stepTwo = {
+      "type": "object",
+      "ui:widget": "hidden",
+      "properties": {}
+    }
   }
 
   // HTTP 200
